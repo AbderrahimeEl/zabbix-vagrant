@@ -1,0 +1,132 @@
+version: '3.8'
+
+services:
+  # Base de données MySQL pour Zabbix
+  mysql-server:
+    image: mysql:8.0
+    container_name: zabbix-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    command:
+      - mysqld
+      - --character-set-server=utf8
+      - --collation-server=utf8_bin
+      - --default-authentication-plugin=mysql_native_password
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - zabbix-net
+    ports:
+      - "3306:3306"
+
+  # Serveur Zabbix
+  zabbix-server:
+    image: zabbix/zabbix-server-mysql:alpine-6.4-latest
+    container_name: zabbix-server
+    restart: unless-stopped
+    environment:
+      DB_SERVER_HOST: mysql-server
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      ZBX_ENABLE_SNMP_TRAPS: "true"
+    volumes:
+      - zabbix-server-data:/var/lib/zabbix
+      - zabbix-server-modules:/var/lib/zabbix/modules
+      - zabbix-server-enc:/var/lib/zabbix/enc
+      - zabbix-server-ssh_keys:/var/lib/zabbix/ssh_keys
+      - zabbix-server-ssl_certs:/var/lib/zabbix/ssl/certs
+      - zabbix-server-ssl_keys:/var/lib/zabbix/ssl/keys
+      - zabbix-server-ssl_ca:/var/lib/zabbix/ssl/ssl_ca
+      - zabbix-server-snmptraps:/var/lib/zabbix/snmptraps
+      - zabbix-server-mibs:/var/lib/zabbix/mibs
+    ports:
+      - "10051:10051"
+    networks:
+      - zabbix-net
+    depends_on:
+      - mysql-server
+
+  # Interface Web Zabbix
+  zabbix-web:
+    image: zabbix/zabbix-web-apache-mysql:alpine-6.4-latest
+    container_name: zabbix-web
+    restart: unless-stopped
+    environment:
+      ZBX_SERVER_HOST: zabbix-server
+      DB_SERVER_HOST: mysql-server
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      PHP_TZ: ${TIMEZONE}
+    volumes:
+      - zabbix-web-ssl:/etc/ssl/apache2
+    ports:
+      - "80:8080"
+      - "443:8443"
+    networks:
+      - zabbix-net
+    depends_on:
+      - mysql-server
+      - zabbix-server
+
+  # Agent Zabbix pour superviser l'hôte local
+  zabbix-agent:
+    image: zabbix/zabbix-agent:alpine-6.4-latest
+    container_name: zabbix-agent
+    restart: unless-stopped
+    environment:
+      ZBX_HOSTNAME: "Docker-Host"
+      ZBX_SERVER_HOST: zabbix-server
+      ZBX_SERVER_PORT: 10051
+      ZBX_PASSIVE_ALLOW: "true"
+      ZBX_ACTIVE_ALLOW: "true"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /dev:/host/dev:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    privileged: true
+    pid: host
+    networks:
+      - zabbix-net
+    depends_on:
+      - zabbix-server
+
+  # Grafana pour la visualisation avancée (optionnel)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: zabbix-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_INSTALL_PLUGINS: alexanderzobnin-zabbix-app
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - zabbix-net
+
+volumes:
+  mysql-data:
+  zabbix-server-data:
+  zabbix-server-modules:
+  zabbix-server-enc:
+  zabbix-server-ssh_keys:
+  zabbix-server-ssl_certs:
+  zabbix-server-ssl_keys:
+  zabbix-server-ssl_ca:
+  zabbix-server-snmptraps:
+  zabbix-server-mibs:
+  zabbix-web-ssl:
+  grafana-data:
+
+networks:
+  zabbix-net:
+    driver: bridge
