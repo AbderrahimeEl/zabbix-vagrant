@@ -205,14 +205,3 @@ docker-compose logs zabbix-web
 ### Configuration HTTPS (optionnel)
 
 Pour activer HTTPS, placez vos certificats dans le volume `zabbix-web-ssl` et modifiez la configuration Apache.
-
-## 📞 Support
-
-Pour toute question ou problème :
-1. Consultez les logs avec `docker-compose logs`
-2. Vérifiez la documentation officielle Zabbix
-3. Consultez les issues GitHub du projet
-
-## 📝 Licence
-
-Ce projet est sous licence MIT.
