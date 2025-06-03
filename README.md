@@ -18,7 +18,7 @@ Ce projet configure un environnement complet de supervision Zabbix utilisant Doc
 ### 1. Cloner ou télécharger le projet
 
 ```bash
-git clone <votre-repo>
+git clone https://github.com/AbderrahimeEl/zabbix-vagrant
 cd zabbix-vagrant
 ```
 
